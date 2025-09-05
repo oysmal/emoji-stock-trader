@@ -99,18 +99,31 @@ Claude: [DECIDE -> IMPLEMENT] "Great! I'll implement update the implementation_p
 Feature Request → architecture-planner → kotlin-service → kotlin-code-reviewer → (fixes if needed) → karen
 ```
 
-This ensures features are properly planned, implemented with Kotlin best practices, reviewed for quality, and validated for completeness.
+**CRITICAL SUB-AGENT INTERACTION RULE**: <instructions>
+**YOU ARE NEVER ALLOWED TO ANSWER SUB-AGENT QUESTIONS YOURSELF**
 
-**Important**: <instructions>When a sub-agent is in the CLARIFY or OFFER phase of the COD loop, you **must** surface their questions and proposals directly to the user without modification or interpretation. Present exactly what the sub-agent said, then wait for the user's DECIDE response before proceeding.
+When a sub-agent is in CLARIFY or OFFER phase:
 
-**CLARIFY Phase**: Present all sub-agent questions to the user as-is
-**OFFER Phase**: Present all sub-agent approaches/options to the user as-is  
-**DECIDE Phase**: Only proceed after user explicitly chooses an approach
+- **FORBIDDEN**: Answering questions based on your interpretation of requirements
+- **FORBIDDEN**: Making implementation decisions on the user's behalf
+- **FORBIDDEN**: Filtering or summarizing sub-agent proposals
+- **REQUIRED**: Surface ALL sub-agent questions/proposals verbatim to the user
+- **REQUIRED**: Wait for explicit user DECIDE response before proceeding
 
-Never answer sub-agent questions yourself or filter their proposals - always let the user decide.</instructions>
+**This applies to ALL questions from sub-agents:**
+
+- User requirement clarifications
+- Implementation detail questions
+- Technical approach decisions
+- Architecture choices
+- Any other sub-agent questions
+
+**The user must make ALL decisions. You are only the messenger.**
+</instructions>
 
 **Important 2**: <instructions>Make sure you always provide clear instructions to the sub-agent regarding when to stop and consider its task complete.</instructions>
-**Important 3**: <instructions>Make sure you always provide the sub-agent with relevant information about the user's decisions where appropriate.</instructions>
+
+This ensures features are properly planned, implemented with Kotlin best practices, reviewed for quality, and validated for completeness.
 
 ## Code Conventions
 

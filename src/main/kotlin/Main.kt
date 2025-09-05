@@ -1,10 +1,9 @@
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
-import no.kraftlauget.kiworkshop.services.OrderManager
-import no.kraftlauget.kiworkshop.services.FillDetector
-import no.kraftlauget.kiworkshop.services.PositionTracker
+import no.kraftlauget.kiworkshop.services.*
+import io.github.oshai.kotlinlogging.KotlinLogging
 
 /**
  * Tests order placement functionality with both BUY and SELL limit orders.
@@ -81,13 +80,14 @@ suspend fun testOrderPlacement(
     }
 }
 
+private val logger = KotlinLogging.logger {}
+
 suspend fun main() {
     val apiClient = ApiClient()
-    lateinit var fillDetector: FillDetector
-    var fillDetectorInitialized = false
+    var tradingSession: TradingSessionManager? = null
     
     try {
-        println("=== Emoji Stock Trading Bot - Phase 1C ===")
+        println("=== Emoji Stock Trading Bot - Autonomous Trading Mode ===")
         println()
         
         // Generate a unique team ID for this run
@@ -101,9 +101,15 @@ suspend fun main() {
         println("   Initial Cash: $${registrationResponse.initialCash}")
         println()
         
-        // Initialize order management, position tracking, and fill detection - Phase 1C.3
-        println("⚙️ Starting order management, position tracking, and fill detection systems...")
+        // Initialize all services in correct order
+        println("⚙️ Initializing trading services...")
+        
+        // Core services - no dependencies
         val orderManager = OrderManager()
+        val priceHistoryService = PriceHistoryService()
+        // MomentumCalculator is an object, not a class - no need to instantiate
+        
+        // Services that depend on ApiClient
         val positionTracker = PositionTracker(apiClient)
         
         // Perform position reconciliation at startup
@@ -111,16 +117,27 @@ suspend fun main() {
         positionTracker.reconcilePosition()
         println("✅ Position reconciliation complete")
         
-        fillDetector = FillDetector(apiClient, orderManager, positionTracker)
-        fillDetectorInitialized = true
+        // Start fill detection
+        val fillDetector = FillDetector(apiClient, orderManager, positionTracker)
         fillDetector.start()
         println("✅ Fill detector started (polling every 5 seconds)")
+        
+        // Create trading session manager
+        tradingSession = TradingSessionManager(
+            apiClient = apiClient,
+            priceHistoryService = priceHistoryService,
+            tradingSignalGenerator = TradingSignalGenerator,
+            orderExecutor = OrderExecutor,
+            orderManager = orderManager,
+            positionTracker = positionTracker,
+            symbol = "🦄"
+        )
+        println("✅ Trading session manager initialized")
         println()
         
-        // Fetch portfolio information
-        println("📊 Fetching portfolio information...")
+        // Display initial portfolio
+        println("📊 Initial portfolio status:")
         val portfolio = apiClient.getPortfolio()
-        println("✅ Portfolio fetched successfully!")
         println("   Team: ${portfolio.teamId}")
         println("   Cash: $${portfolio.cash}")
         println("   Equity: $${portfolio.equity}")
@@ -133,16 +150,14 @@ suspend fun main() {
                 println("     $symbol: $quantity shares")
             }
         }
-        
         println()
         
-        // Market data testing section
+        // Display initial market data
         try {
-            println("📈 Fetching market data for 🦄...")
+            println("📈 Current market data for 🦄:")
             val orderBook = apiClient.getOrderBook("🦄")
-            println("✅ Market data retrieved successfully!")
             
-            // Display top 3 bids
+            // Display top 3 bids and asks
             println("   Top 3 Bids:")
             if (orderBook.bids.isEmpty()) {
                 println("     (No bids available)")
@@ -152,7 +167,6 @@ suspend fun main() {
                 }
             }
             
-            // Display top 3 asks
             println("   Top 3 Asks:")
             if (orderBook.asks.isEmpty()) {
                 println("     (No asks available)")
@@ -173,42 +187,88 @@ suspend fun main() {
         } catch (e: Exception) {
             println("❌ Error fetching market data: ${e.message}")
         }
-        
         println()
         
-        println("⚡ Rate limiting test previously passed!")
+        // Start autonomous trading
+        println("🤖 Starting autonomous trading session...")
+        println("   - Price polling every 30 seconds")
+        println("   - Trading cycles every 30 seconds (15-second offset)")
+        println("   - Maximum 10 orders")
+        println("   - Press Ctrl+C to stop")
         println()
         
-        // Order placement test - Phase 1B  
-        testOrderPlacement(apiClient, orderManager, positionTracker)
-        
-        println()
-        println("🎉 Phase 1C.3 Complete! Position tracking and fill detection systems running!")
-        
-        // Let the fill detector run for a few more seconds to demonstrate
-        println("⏳ Letting fill detector run for 15 more seconds to check for fills...")
-        delay(15.seconds)
-        
-        // Final check of tracked orders and position
-        val finalTrackedOrders = orderManager.getAllTrackedOrders()
-        println("📋 Final tracked orders count: ${finalTrackedOrders.size}")
-        
-        val finalPosition = positionTracker.getCurrentPosition()
-        println("📊 Final calculated 🦄 position: $finalPosition shares")
-        
-        // Stop the fill detector
-        if (fillDetectorInitialized) {
-            fillDetector.stop()
+        // Create coroutine scope for trading
+        coroutineScope {
+            // Start trading session
+            tradingSession.start(this)
+            
+            // Status reporting loop
+            val statusJob = launch {
+                while (true) {
+                    delay(30.seconds) // Report status every 30 seconds
+                    
+                    val status = tradingSession.getSessionStatus()
+                    println("📊 Session Status:")
+                    println("   Orders placed: ${status.ordersPlaced}/10")
+                    println("   Time elapsed: ${status.timeElapsedMinutes} minutes")
+                    
+                    status.currentPnL?.let { pnl ->
+                        val pnlFormatted = if (pnl >= 0) "+$${String.format("%.2f", pnl)}" else "-$${String.format("%.2f", kotlin.math.abs(pnl))}"
+                        println("   Current P&L: $pnlFormatted")
+                    } ?: println("   Current P&L: Unable to calculate")
+                    
+                    status.lastBuyOrder?.let { println("   Last buy: $it") }
+                    status.lastSellOrder?.let { println("   Last sell: $it") }
+                    
+                    println("   Status: ${if (status.isRunning) "Running" else "Stopped"}")
+                    println()
+                    
+                    // Check if trading should stop
+                    if (tradingSession.shouldStop()) {
+                        println("🎯 Maximum orders reached! Stopping trading session...")
+                        break
+                    }
+                }
+            }
+            
+            // Wait for trading to complete or manual cancellation
+            try {
+                statusJob.join()
+            } catch (e: CancellationException) {
+                println("\n🛑 Trading session canceled by user")
+            }
         }
-        println("🛑 Fill detector stopped")
+        
+        println()
+        println("📋 Final session summary:")
+        val finalStatus = tradingSession.getSessionStatus()
+        println("   Total orders placed: ${finalStatus.ordersPlaced}")
+        println("   Total time: ${finalStatus.timeElapsedMinutes} minutes")
+        
+        finalStatus.currentPnL?.let { pnl ->
+            val pnlFormatted = if (pnl >= 0) "+$${String.format("%.2f", pnl)}" else "-$${String.format("%.2f", kotlin.math.abs(pnl))}"
+            println("   Final P&L: $pnlFormatted")
+        } ?: println("   Final P&L: Unable to calculate")
+        
+        // Final portfolio check
+        val finalPortfolio = apiClient.getPortfolio()
+        println("   Final cash: $${finalPortfolio.cash}")
+        println("   Final 🦄 position: ${finalPortfolio.positions["🦄"] ?: 0} shares")
+        
+        // Stop all services
+        tradingSession.stop()
+        fillDetector.stop()
+        fillDetector.close()
+        
+        println("🎉 Trading session complete!")
         
     } catch (e: Exception) {
+        logger.error(e) { "Trading bot error: ${e.message}" }
         println("❌ Error: ${e.message}")
         e.printStackTrace()
     } finally {
-        if (fillDetectorInitialized) {
-            fillDetector.close()
-        }
+        tradingSession?.stop()
         apiClient.close()
+        println("🔧 Cleanup complete")
     }
 }
