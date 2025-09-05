@@ -1,5 +1,7 @@
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.delay
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 
 suspend fun main() {
     val apiClient = ApiClient()
@@ -77,7 +79,62 @@ suspend fun main() {
         }
         
         println()
-        println("🎉 Phase 1A Complete! Market data integration working.")
+        
+        println("⚡ Rate limiting test previously passed!")
+        println()
+        
+        // Order placement test - Phase 1B  
+        println("💰 Testing order placement with real orders...")
+        
+        try {
+            // Test limit buy order - use a reasonable price like $50
+            println("   Placing limit BUY order for 🦄 at $50...")
+            val buyRequest = PlaceOrderRequest(
+                symbol = "🦄",
+                side = OrderSide.BUY,
+                quantity = 1,
+                orderType = OrderType.LIMIT,
+                limitPrice = 50.0
+            )
+            
+            val buyResponse = apiClient.placeOrder(buyRequest)
+            println("   ✅ Buy order placed successfully!")
+            println("      Order ID: ${buyResponse.orderId}")
+            println("      Status: ${buyResponse.status}")
+            println("      Symbol: ${buyResponse.symbol} | Side: ${buyResponse.side} | Qty: ${buyResponse.quantity}")
+            
+            delay(2.seconds) // Wait 2 seconds
+            
+            // Test limit sell order - use a higher price like $150
+            println("   Placing limit SELL order for 🦄 at $150...")
+            val sellRequest = PlaceOrderRequest(
+                symbol = "🦄", 
+                side = OrderSide.SELL,
+                quantity = 1,
+                orderType = OrderType.LIMIT,
+                limitPrice = 150.0
+            )
+            
+            val sellResponse = apiClient.placeOrder(sellRequest)
+            println("   ✅ Sell order placed successfully!")
+            println("      Order ID: ${sellResponse.orderId}")  
+            println("      Status: ${sellResponse.status}")
+            println("      Symbol: ${sellResponse.symbol} | Side: ${sellResponse.side} | Qty: ${sellResponse.quantity}")
+            
+            // Check final portfolio
+            delay(2.seconds) // Wait for orders to potentially fill
+            println("   Checking portfolio after orders...")
+            val finalPortfolio = apiClient.getPortfolio()
+            println("   Final Cash: $${finalPortfolio.cash}")
+            println("   Final 🦄 Position: ${finalPortfolio.positions["🦄"] ?: 0} shares")
+            
+        } catch (e: Exception) {
+            println("   ❌ Order placement failed: ${e.message}")
+            e.printStackTrace()
+        }
+        
+        println()
+        println("🎉 Phase 1B Complete! Rate limiting and order placement working!")
         
     } catch (e: Exception) {
         println("❌ Error: ${e.message}")

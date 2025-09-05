@@ -8,15 +8,21 @@ import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.Json
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.*
+import no.kraftlauget.kiworkshop.utils.RateLimiter
 
 class ApiClient {
     companion object {
-        var baseUrl = "http://localhost:8080"
+        const val baseUrl = "http://localhost:8080"
     }
     
     private var teamId: String? = null
     private var apiKey: String? = null
     private val logger = KotlinLogging.logger {}
+    
+    // Rate limiter with dedicated CoroutineScope
+    private val rateLimiterScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val rateLimiter = RateLimiter(rateLimiterScope)
     
     private val httpClient = HttpClient(CIO) {
         install(ContentNegotiation) {
@@ -59,6 +65,7 @@ class ApiClient {
             throw IllegalStateException("Not authenticated. Please register first.")
         }
         
+        rateLimiter.acquirePermit()
         logger.info { "Fetching portfolio for team: $teamId" }
         
         val response = httpClient.get("$baseUrl/v1/portfolio/$teamId") {
@@ -81,6 +88,7 @@ class ApiClient {
             throw IllegalStateException("Not authenticated. Please register first.")
         }
         
+        rateLimiter.acquirePermit()
         logger.info { "Fetching orderbook for symbol: $symbol" }
         
         val response = httpClient.get("$baseUrl/v1/orderbook") {
@@ -110,7 +118,34 @@ class ApiClient {
         return bestAsk - bestBid
     }
     
+    suspend fun placeOrder(request: PlaceOrderRequest): OrderResponse {
+        if (teamId == null || apiKey == null) {
+            throw IllegalStateException("Not authenticated. Please register first.")
+        }
+        
+        rateLimiter.acquirePermit()
+        logger.info { "Placing order: ${request.side} ${request.quantity} ${request.symbol}" }
+        
+        val response = httpClient.post("$baseUrl/v1/orders") {
+            contentType(ContentType.Application.Json)
+            header("X-Team-Id", teamId)
+            header("X-Api-Key", apiKey)
+            setBody(request)
+        }
+        
+        if (response.status.isSuccess()) {
+            val orderResponse: OrderResponse = response.body()
+            logger.info { "Successfully placed order: ${orderResponse.orderId} for ${request.symbol}" }
+            return orderResponse
+        } else {
+            val errorResponse: ErrorResponse = response.body()
+            throw Exception("Failed to place order: ${errorResponse.error}")
+        }
+    }
+    
     fun close() {
+        rateLimiter.close()
+        rateLimiterScope.cancel()
         httpClient.close()
     }
 }

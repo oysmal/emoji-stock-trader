@@ -30,7 +30,7 @@ data class ErrorResponse(
 data class OrderBookLevel(
     val price: Double,
     val quantity: Int,
-    val timestamp: String
+    val orderCount: Int
 )
 
 @Serializable
@@ -39,4 +39,43 @@ data class OrderBookResponse(
     val bids: List<OrderBookLevel>,
     val asks: List<OrderBookLevel>,
     val timestamp: String
+)
+
+@Serializable
+enum class OrderSide {
+    BUY, SELL
+}
+
+@Serializable
+enum class OrderType {
+    MARKET, LIMIT
+}
+
+@Serializable
+enum class OrderStatus {
+    ACCEPTED, PARTIALLY_FILLED, FILLED, CANCELLED
+}
+
+@Serializable
+data class PlaceOrderRequest(
+    val symbol: String,
+    val side: OrderSide,
+    val quantity: Int,
+    val orderType: OrderType,
+    val limitPrice: Double
+)
+
+@Serializable
+data class OrderResponse(
+    val orderId: String,
+    val symbol: String,
+    val side: OrderSide,
+    val quantity: Int,
+    val limitPrice: Double,
+    val status: OrderStatus,
+    val filledQuantity: Int,
+    val avgFillPrice: Double? = null,
+    val remainingQuantity: Int,
+    val createdAt: String,
+    val updatedAt: String
 )
