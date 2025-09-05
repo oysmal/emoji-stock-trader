@@ -79,3 +79,22 @@ data class OrderResponse(
     val createdAt: String,
     val updatedAt: String
 )
+
+@Serializable
+data class Fill(
+    val fillId: Long,
+    val orderId: String,
+    val teamId: String,
+    val symbol: String,
+    val side: OrderSide,
+    val quantity: Int,
+    val price: Double,
+    val timestamp: String,
+    val seq: Int
+)
+
+@Serializable
+data class FillsResponse(
+    val fills: List<Fill>,
+    val nextSince: Long
+)

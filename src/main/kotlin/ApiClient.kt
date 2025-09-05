@@ -143,6 +143,32 @@ class ApiClient {
         }
     }
     
+    suspend fun getFills(since: Long? = null): FillsResponse {
+        if (teamId == null || apiKey == null) {
+            throw IllegalStateException("Not authenticated. Please register first.")
+        }
+        
+        rateLimiter.acquirePermit()
+        logger.debug { "Fetching fills since: $since" }
+        
+        val response = httpClient.get("$baseUrl/v1/fills") {
+            header("X-Team-Id", teamId)
+            header("X-Api-Key", apiKey)
+            if (since != null) {
+                parameter("since", since)
+            }
+        }
+        
+        if (response.status.isSuccess()) {
+            val fillsResponse: FillsResponse = response.body()
+            logger.debug { "Successfully fetched ${fillsResponse.fills.size} fills" }
+            return fillsResponse
+        } else {
+            val errorResponse: ErrorResponse = response.body()
+            throw Exception("Failed to fetch fills: ${errorResponse.error}")
+        }
+    }
+    
     fun close() {
         rateLimiter.close()
         rateLimiterScope.cancel()

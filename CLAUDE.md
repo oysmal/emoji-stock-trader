@@ -32,6 +32,7 @@ A Kotlin-based automated trading bot. This project prioritizes clarity and simpl
 **You MUST follow this development workflow for ALL coding tasks:**
 
 1. **CLARIFY Phase**
+
    - Ask clarifying questions about requirements before suggesting any code
    - Identify ambiguities in the request
    - Confirm understanding of the desired outcome
@@ -39,6 +40,7 @@ A Kotlin-based automated trading bot. This project prioritizes clarity and simpl
    - Never assume implementation details without confirmation
 
 2. **OFFER Phase**
+
    - Present 2-3 different approaches with pros/cons
    - Explain trade-offs for each option (performance, maintainability, complexity)
    - Include brief code sketches or pseudocode when helpful
@@ -80,6 +82,8 @@ Claude: [DECIDE -> IMPLEMENT] "Great! I'll implement update the implementation_p
 
 **Follow this agent workflow for all feature development:**
 
+**Important**: Always provide the user with information about what the sub-agent responded. If necessary, present everything verbatim.
+
 1. **PLANNING**: Use `architecture-planner` agent to break down complex features into clear, manageable implementation steps
 2. **IMPLEMENTATION**: Use appropriate Kotlin sub-agents:
    - `kotlin-service` - Business logic and services
@@ -97,9 +101,16 @@ Feature Request → architecture-planner → kotlin-service → kotlin-code-revi
 
 This ensures features are properly planned, implemented with Kotlin best practices, reviewed for quality, and validated for completeness.
 
-**Important**: If the agent ask a question about the implementation (a COD loop action), you **must** surface this to the user, and let them decide.
-**Important 2**: Make sure you always provide clear instructions to the sub-agent regarding when to stop and consider its task complete.
-**Important 3**: Make sure you always provide the sub-agent with relevant information about the user's decisions where appropriate.
+**Important**: <instructions>When a sub-agent is in the CLARIFY or OFFER phase of the COD loop, you **must** surface their questions and proposals directly to the user without modification or interpretation. Present exactly what the sub-agent said, then wait for the user's DECIDE response before proceeding.
+
+**CLARIFY Phase**: Present all sub-agent questions to the user as-is
+**OFFER Phase**: Present all sub-agent approaches/options to the user as-is  
+**DECIDE Phase**: Only proceed after user explicitly chooses an approach
+
+Never answer sub-agent questions yourself or filter their proposals - always let the user decide.</instructions>
+
+**Important 2**: <instructions>Make sure you always provide clear instructions to the sub-agent regarding when to stop and consider its task complete.</instructions>
+**Important 3**: <instructions>Make sure you always provide the sub-agent with relevant information about the user's decisions where appropriate.</instructions>
 
 ## Code Conventions
 
