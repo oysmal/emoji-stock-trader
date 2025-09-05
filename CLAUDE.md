@@ -25,7 +25,7 @@ A Kotlin-based automated trading bot. This project prioritizes clarity and simpl
 - **Logging**: kotlin-logging + Logback
 - **Configuration**: HOCON (application.conf)
 
-## Development Process Instructions (COD Loop)
+## Development Process Instructions (COD Loop and sub-agents)
 
 ### CRITICAL: Clarify-Offer-Decide (COD) Loop Requirements
 
@@ -51,6 +51,9 @@ A Kotlin-based automated trading bot. This project prioritizes clarity and simpl
    - Respect that the developer is in the driver's seat
    - After a decision is made, implement only what was chosen
 
+After the user DECIDES, if there exists a plan document you are working on,
+write the a brief note about the decision to this plan document.
+
 **Example COD Flow:**
 
 ```
@@ -70,8 +73,32 @@ Claude: [OFFER] "Here are three approaches:
 Which would you prefer?"
 
 Developer: "Let's go with option 1"
-Claude: [DECIDE -> IMPLEMENT] "Great! I'll implement the HTTP client approach..."
+Claude: [DECIDE -> IMPLEMENT] "Great! I'll implement update the implementation_plan.md and proceed with the HTTP client approach..."
 ```
+
+### REQUIRED: Sub-Agent Workflow for Feature Development
+
+**Follow this agent workflow for all feature development:**
+
+1. **PLANNING**: Use `architecture-planner` agent to break down complex features into clear, manageable implementation steps
+2. **IMPLEMENTATION**: Use appropriate Kotlin sub-agents:
+   - `kotlin-service` - Business logic and services
+   - `kotlin-ktor` - HTTP routes, API endpoints and configuration
+   - `kotlin-db` - Database functionality, if needed
+3. **REVIEW**: Use `kotlin-code-reviewer` agent to review all produced code for quality and best practices
+4. **REFINEMENT**: If issues are found, pass back to appropriate `kotlin-*` agent to resolve
+5. **VALIDATION**: Use `karen` agent to verify the plan was completed satisfactorily and all requirements met
+
+**Example Workflow:**
+
+```
+Feature Request → architecture-planner → kotlin-service → kotlin-code-reviewer → (fixes if needed) → karen
+```
+
+This ensures features are properly planned, implemented with Kotlin best practices, reviewed for quality, and validated for completeness.
+
+**Important**: Make sure you always provide clear instructions to the sub-agent regarding when to stop and consider its task complete.
+**Important 2**: Make sure you always provide the sub-agent with relevant information about the user's decisions where appropriate.
 
 ## Code Conventions
 
@@ -198,27 +225,6 @@ LOG_LEVEL=INFO
 12. Keep business logic close to where it's used
 13. Avoid unnecessary abstractions and patterns
 14. Simple doesn't mean incomplete - implement features fully but simply
-
-### REQUIRED: Sub-Agent Workflow for Feature Development
-
-**Follow this agent workflow for all feature development:**
-
-1. **PLANNING**: Use `architecture-planner` agent to break down complex features into clear, manageable implementation steps
-2. **IMPLEMENTATION**: Use appropriate Kotlin sub-agents:
-   - `kotlin-service` - Business logic and service classes
-   - `kotlin-ktor` - HTTP routes and API endpoints
-   - `kotlin-utility` - Utility functions and extensions
-   - `kotlin-db` - Database repository classes (if needed)
-3. **REVIEW**: Use `kotlin-code-reviewer` agent to review all produced code for quality and best practices
-4. **REFINEMENT**: If issues are found, pass back to appropriate `kotlin-*` agent to resolve
-5. **VALIDATION**: Use `karen` agent to verify the plan was completed satisfactorily and all requirements met
-
-**Example Workflow:**
-```
-Feature Request → architecture-planner → kotlin-service → kotlin-code-reviewer → (fixes if needed) → karen
-```
-
-This ensures features are properly planned, implemented with Kotlin best practices, reviewed for quality, and validated for completeness.
 
 ### Code Review Checklist
 
