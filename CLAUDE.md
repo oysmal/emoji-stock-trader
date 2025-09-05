@@ -97,8 +97,9 @@ Feature Request → architecture-planner → kotlin-service → kotlin-code-revi
 
 This ensures features are properly planned, implemented with Kotlin best practices, reviewed for quality, and validated for completeness.
 
-**Important**: Make sure you always provide clear instructions to the sub-agent regarding when to stop and consider its task complete.
-**Important 2**: Make sure you always provide the sub-agent with relevant information about the user's decisions where appropriate.
+**Important**: If the agent ask a question about the implementation (a COD loop action), you **must** surface this to the user, and let them decide.
+**Important 2**: Make sure you always provide clear instructions to the sub-agent regarding when to stop and consider its task complete.
+**Important 3**: Make sure you always provide the sub-agent with relevant information about the user's decisions where appropriate.
 
 ## Code Conventions
 
