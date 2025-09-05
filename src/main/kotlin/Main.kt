@@ -37,7 +37,47 @@ suspend fun main() {
         }
         
         println()
-        println("🎉 Phase 0 Complete! API client working correctly.")
+        
+        // Market data testing section
+        try {
+            println("📈 Fetching market data for 🦄...")
+            val orderBook = apiClient.getOrderBook("🦄")
+            println("✅ Market data retrieved successfully!")
+            
+            // Display top 3 bids
+            println("   Top 3 Bids:")
+            if (orderBook.bids.isEmpty()) {
+                println("     (No bids available)")
+            } else {
+                orderBook.bids.take(3).forEach { bid ->
+                    println("     $${String.format("%.2f", bid.price)} (${bid.quantity} shares)")
+                }
+            }
+            
+            // Display top 3 asks
+            println("   Top 3 Asks:")
+            if (orderBook.asks.isEmpty()) {
+                println("     (No asks available)")
+            } else {
+                orderBook.asks.take(3).forEach { ask ->
+                    println("     $${String.format("%.2f", ask.price)} (${ask.quantity} shares)")
+                }
+            }
+            
+            // Display spread
+            val spread = apiClient.getCurrentSpread(orderBook)
+            if (spread != null) {
+                println("   Spread: $${String.format("%.2f", spread)}")
+            } else {
+                println("   Spread: No bids/asks available")
+            }
+            
+        } catch (e: Exception) {
+            println("❌ Error fetching market data: ${e.message}")
+        }
+        
+        println()
+        println("🎉 Phase 1A Complete! Market data integration working.")
         
     } catch (e: Exception) {
         println("❌ Error: ${e.message}")

@@ -76,6 +76,40 @@ class ApiClient {
         }
     }
     
+    suspend fun getOrderBook(symbol: String): OrderBookResponse {
+        if (teamId == null || apiKey == null) {
+            throw IllegalStateException("Not authenticated. Please register first.")
+        }
+        
+        logger.info { "Fetching orderbook for symbol: $symbol" }
+        
+        val response = httpClient.get("$baseUrl/v1/orderbook") {
+            parameter("symbol", symbol)
+            header("X-Team-Id", teamId)
+            header("X-Api-Key", apiKey)
+        }
+        
+        if (response.status.isSuccess()) {
+            val orderBookResponse: OrderBookResponse = response.body()
+            logger.info { "Successfully fetched orderbook for $symbol. Bids: ${orderBookResponse.bids.size}, Asks: ${orderBookResponse.asks.size}" }
+            return orderBookResponse
+        } else {
+            val errorResponse: ErrorResponse = response.body()
+            throw Exception("Failed to fetch orderbook: ${errorResponse.error}")
+        }
+    }
+    
+    fun getCurrentSpread(orderBook: OrderBookResponse): Double? {
+        if (orderBook.bids.isEmpty() || orderBook.asks.isEmpty()) {
+            return null
+        }
+        
+        val bestBid = orderBook.bids[0].price
+        val bestAsk = orderBook.asks[0].price
+        
+        return bestAsk - bestBid
+    }
+    
     fun close() {
         httpClient.close()
     }

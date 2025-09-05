@@ -25,3 +25,18 @@ data class ErrorResponse(
     val error: String,
     val message: String? = null
 )
+
+@Serializable
+data class OrderBookLevel(
+    val price: Double,
+    val quantity: Int,
+    val timestamp: String
+)
+
+@Serializable
+data class OrderBookResponse(
+    val symbol: String,
+    val bids: List<OrderBookLevel>,
+    val asks: List<OrderBookLevel>,
+    val timestamp: String
+)
