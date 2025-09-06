@@ -122,15 +122,14 @@ suspend fun main() {
         fillDetector.start()
         println("✅ Fill detector started (polling every 5 seconds)")
         
-        // Create trading session manager
+        // Create trading session manager for all emoji stocks
         tradingSession = TradingSessionManager(
             apiClient = apiClient,
             priceHistoryService = priceHistoryService,
             tradingSignalGenerator = TradingSignalGenerator,
             orderExecutor = OrderExecutor,
             orderManager = orderManager,
-            positionTracker = positionTracker,
-            symbol = "🦄"
+            positionTracker = positionTracker
         )
         println("✅ Trading session manager initialized")
         println()
@@ -186,6 +185,61 @@ suspend fun main() {
             
         } catch (e: Exception) {
             println("❌ Error fetching market data: ${e.message}")
+        }
+        println()
+        
+        // Place initial orders (bids and asks) for all emojis
+        println("💰 Placing initial orders for all emojis...")
+        try {
+            val symbols = listOf("🦄", "💎", "❤️", "🍌", "🍾", "💻")
+            val lowBallPrice = 10.0 // Very low bid price
+            val highAskPrice = 500.0 // Very high ask price
+            val orderQuantity = 1 // Small quantity for both
+            
+            symbols.forEach { symbol ->
+                // Place low-ball bid
+                try {
+                    println("   Placing low-ball bid for $symbol at $$lowBallPrice...")
+                    val bidRequest = PlaceOrderRequest(
+                        symbol = symbol,
+                        side = OrderSide.BUY,
+                        quantity = orderQuantity,
+                        orderType = OrderType.LIMIT,
+                        limitPrice = lowBallPrice
+                    )
+                    
+                    val bidResponse = apiClient.placeOrder(bidRequest)
+                    orderManager.trackOrder(bidResponse)
+                    println("   ✅ Low-ball bid placed: ${bidResponse.orderId}")
+                    
+                    delay(1.seconds) // Small delay between orders
+                } catch (e: Exception) {
+                    println("   ❌ Failed to place bid for $symbol: ${e.message}")
+                }
+                
+                // Place high ask
+                try {
+                    println("   Placing high ask for $symbol at $$highAskPrice...")
+                    val askRequest = PlaceOrderRequest(
+                        symbol = symbol,
+                        side = OrderSide.SELL,
+                        quantity = orderQuantity,
+                        orderType = OrderType.LIMIT,
+                        limitPrice = highAskPrice
+                    )
+                    
+                    val askResponse = apiClient.placeOrder(askRequest)
+                    orderManager.trackOrder(askResponse)
+                    println("   ✅ High ask placed: ${askResponse.orderId}")
+                    
+                    delay(1.seconds) // Small delay between orders
+                } catch (e: Exception) {
+                    println("   ❌ Failed to place ask for $symbol: ${e.message}")
+                }
+            }
+            println("✅ Initial orders (bids and asks) completed")
+        } catch (e: Exception) {
+            println("❌ Error placing initial orders: ${e.message}")
         }
         println()
         

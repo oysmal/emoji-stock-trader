@@ -26,7 +26,7 @@ class TradingSessionManager(
     private val orderExecutor: OrderExecutor,
     private val orderManager: OrderManager,
     private val positionTracker: PositionTracker,
-    private val symbol: String = "🦄"
+    private val symbols: List<String> = listOf("🦄", "💎", "❤️", "🍌", "🍾", "💻")
 ) {
     
     companion object {
@@ -59,7 +59,7 @@ class TradingSessionManager(
         }
         
         isRunning = true
-        logger.info { "Starting trading session for $symbol" }
+        logger.info { "Starting trading session for ${symbols.joinToString(", ")}" }
         logger.info { "Price polling every ${PRICE_POLLING_INTERVAL_SECONDS}s, trading cycles every ${TRADING_CYCLE_INTERVAL_SECONDS}s with ${TRADING_OFFSET_SECONDS}s offset" }
         logger.info { "Session will run until manually canceled or $MAX_ORDERS orders placed" }
         
@@ -141,13 +141,25 @@ class TradingSessionManager(
     private suspend fun updateCachedPnL() {
         try {
             val portfolio = apiClient.getPortfolio()
-            val currentMarketPrice = getCurrentMarketPrice()
             
-            if (currentMarketPrice > 0.0) {
+            // Calculate total position value across all symbols
+            var totalPositionValue = 0.0
+            var validPrices = 0
+            
+            for (symbol in symbols) {
+                val currentMarketPrice = getCurrentMarketPrice(symbol)
+                if (currentMarketPrice > 0.0) {
+                    val positionSize = portfolio.positions[symbol] ?: 0
+                    totalPositionValue += positionSize * currentMarketPrice
+                    validPrices++
+                }
+            }
+            
+            if (validPrices > 0) {
                 val initialCash = 100_000.0 // Standard starting cash
-                val currentValue = portfolio.cash + (portfolio.positions[symbol] ?: 0) * currentMarketPrice
+                val currentValue = portfolio.cash + totalPositionValue
                 cachedPnL = currentValue - initialCash
-                logger.debug { "Updated cached P&L: ${String.format("%.2f", cachedPnL ?: 0.0)}" }
+                logger.debug { "Updated cached P&L: ${String.format("%.2f", cachedPnL ?: 0.0)} (${validPrices}/${symbols.size} symbols)" }
             }
         } catch (e: Exception) {
             logger.debug { "Could not update P&L cache: ${e.message}" }
@@ -162,11 +174,19 @@ class TradingSessionManager(
     private suspend fun pricePollingLoop() {
         while (isRunning && !shouldStop()) {
             try {
-                pollPrice()
+                // Poll prices for all symbols sequentially
+                symbols.forEach { symbol ->
+                    try {
+                        pollPrice(symbol)
+                    } catch (e: Exception) {
+                        logger.error(e) { "Price polling failed for $symbol: ${e.message}" }
+                        // Continue with next symbol - don't stop on single symbol failure
+                    }
+                }
                 // Update P&L cache periodically (safe non-blocking operation)
                 updateCachedPnL()
             } catch (e: Exception) {
-                logger.error(e) { "Price polling failed, skipping cycle: ${e.message}" }
+                logger.error(e) { "Price polling cycle failed, skipping cycle: ${e.message}" }
                 // Continue to next cycle - don't stop on API failures
             }
             
@@ -180,7 +200,17 @@ class TradingSessionManager(
     private suspend fun tradingCycleLoop() {
         while (isRunning && !shouldStop()) {
             try {
-                executeTradingCycle()
+                // Execute trading cycles for all symbols sequentially
+                symbols.forEach { symbol ->
+                    if (!shouldStop()) { // Check before each symbol to stop immediately when limit reached
+                        try {
+                            executeTradingCycle(symbol)
+                        } catch (e: Exception) {
+                            logger.error(e) { "Trading cycle failed for $symbol: ${e.message}" }
+                            // Continue with next symbol - don't stop on single symbol failure
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 logger.error(e) { "Trading cycle failed, skipping cycle: ${e.message}" }
                 // Continue to next cycle - don't stop on API failures
@@ -196,9 +226,9 @@ class TradingSessionManager(
     }
     
     /**
-     * Polls current market price and updates price history.
+     * Polls current market price and updates price history for a specific symbol.
      */
-    private suspend fun pollPrice() {
+    private suspend fun pollPrice(symbol: String) {
         try {
             val orderBook = apiClient.getOrderBook(symbol)
             val midPrice = apiClient.getCurrentSpread(orderBook)?.let { spread ->
@@ -221,9 +251,9 @@ class TradingSessionManager(
     }
     
     /**
-     * Executes one trading cycle: generate signal and execute if valid.
+     * Executes one trading cycle for a specific symbol: generate signal and execute if valid.
      */
-    private suspend fun executeTradingCycle() {
+    private suspend fun executeTradingCycle(symbol: String) {
         try {
             logger.debug { "Executing trading cycle for $symbol" }
             
@@ -253,11 +283,11 @@ class TradingSessionManager(
                 
                 // Track last order by type
                 when (signal.side) {
-                    OrderSide.BUY -> lastBuyOrder = "Buy #$ordersPlaced at ${System.currentTimeMillis()}"
-                    OrderSide.SELL -> lastSellOrder = "Sell #$ordersPlaced at ${System.currentTimeMillis()}"
+                    OrderSide.BUY -> lastBuyOrder = "$symbol Buy #$ordersPlaced at ${System.currentTimeMillis()}"
+                    OrderSide.SELL -> lastSellOrder = "$symbol Sell #$ordersPlaced at ${System.currentTimeMillis()}"
                 }
                 
-                logger.info { "Order placed successfully. Total orders: $ordersPlaced/$MAX_ORDERS" }
+                logger.info { "Order placed successfully for $symbol. Total orders: $ordersPlaced/$MAX_ORDERS" }
                 
                 if (shouldStop()) {
                     logger.info { "Reached maximum orders limit ($MAX_ORDERS)" }
@@ -271,9 +301,9 @@ class TradingSessionManager(
     }
     
     /**
-     * Gets current market price for P&L calculation.
+     * Gets current market price for P&L calculation for a specific symbol.
      */
-    private suspend fun getCurrentMarketPrice(): Double {
+    private suspend fun getCurrentMarketPrice(symbol: String): Double {
         return try {
             val orderBook = apiClient.getOrderBook(symbol)
             val bestBid = orderBook.bids.firstOrNull()?.price ?: 0.0
@@ -284,7 +314,7 @@ class TradingSessionManager(
                 0.0
             }
         } catch (e: Exception) {
-            logger.warn { "Could not get market price: ${e.message}" }
+            logger.warn { "Could not get market price for $symbol: ${e.message}" }
             0.0
         }
     }

@@ -16,7 +16,7 @@ private val logger = KotlinLogging.logger {}
  */
 object OrderExecutor {
     
-    private const val BUDGET_PER_TRADE = 1000.0 // $1000 budget per trade
+    private const val BUDGET_PER_TRADE = 200.0 // $200 budget per trade
     private const val POSITION_SIZE_PERCENT = 0.10 // Trade 10% of current position
     private const val BUY_PRICE_DISCOUNT = 0.05 // Buy 5% below market price
     
